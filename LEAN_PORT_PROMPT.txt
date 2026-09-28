@@ -1,0 +1,28 @@
+Reusable prompt for future Minecraft mod version conversions
+
+Port this Minecraft mod to the requested newer version while preserving behavior and minimizing external dependencies.
+
+Repository: <GITHUB URL>
+Current working version: <OLD VERSION>
+Target version: <TARGET VERSION>
+Loader: <FABRIC / NEOFORGE / FORGE>
+Desired dependency policy: keep only dependencies that are demonstrably required by runtime code; do not add config/menu libraries merely for convenience.
+
+Workflow:
+1. Inspect the old release/tag and the target branch/version files side-by-side.
+2. Compare build files, mod metadata, mixins, entrypoints, and API calls.
+3. Identify dependencies that are actually referenced by runtime code.
+4. Prefer vanilla/Minecraft/loader APIs over third-party libraries when a small replacement is practical.
+5. Preserve feature behavior and config keys; migrate config storage rather than forcing a new config mod.
+6. Remove optional UI integrations such as Mod Menu unless they are genuinely required.
+7. Update only the Minecraft/loader APIs that changed between versions.
+8. Build in a clean environment with the target Java version and the repository's Gradle wrapper.
+9. Inspect the produced JAR's mod metadata and verify the declared dependency list.
+10. Produce a reproducible GitHub Actions workflow and a short README explaining how to repeat the conversion.
+
+Important:
+- Do not "fake" compatibility by only changing the version number in metadata.
+- Do not silently add new dependency mods.
+- If a dependency is retained, explain exactly which imported classes require it.
+- If the environment cannot download Gradle/Minecraft artifacts, provide the workflow rather than claiming a tested JAR.
+- For future Minecraft point releases, update the target source/toolchain first, then fix genuine compile/runtime API changes revealed by the build.
