@@ -1,0 +1,59 @@
+name: Build Screenshot Message Enhancer - lean Fabric 26.2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Apply lean-port transformation
+        run: python3 tools/lean_26_2_port.py
+
+      - name: Show final dependency declarations
+        shell: bash
+        run: |
+          echo "=== build.gradle.kts dependency block ==="
+          sed -n '/dependencies {/,/}/p' build.gradle.kts || true
+          echo "=== fabric.mod.json ==="
+          cat versions/26.2-fabric/src/main/resources/fabric.mod.json
+
+      - name: Build
+        run: chmod +x ./gradlew && ./gradlew --no-daemon build
+
+      - name: Collect jars
+        shell: bash
+        run: |
+          mkdir -p out
+          find . -type f -path '*/build/libs/*.jar' \
+            ! -name '*-sources.jar' \
+            -exec cp -v {} out/ \;
+          test -n "$(find out -maxdepth 1 -name '*.jar' -print -quit)"
+
+      - name: Inspect produced mod metadata
+        shell: bash
+        run: |
+          set -e
+          for jar in out/*.jar; do
+            echo "=== $jar ==="
+            unzip -p "$jar" fabric.mod.json | sed -n '1,120p' || true
+          done
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-message-enhancer-lean-26.2
+          path: out/*.jar
+          if-no-files-found: error
