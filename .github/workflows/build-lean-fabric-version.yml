@@ -1,0 +1,96 @@
+name: Build Screenshot Message Enhancer - lean Fabric version
+
+on:
+  workflow_dispatch:
+    inputs:
+      minecraft_version:
+        description: 'Minecraft version to build (for example: 26.3 or 26.4)'
+        required: true
+        default: '26.3'
+        type: string
+      fabric_api_version:
+        description: 'Optional Fabric API version override (leave blank for automatic detection)'
+        required: false
+        default: ''
+        type: string
+      fabric_loader_version:
+        description: 'Optional Fabric Loader version override (leave blank for automatic detection)'
+        required: false
+        default: ''
+        type: string
+      java_version:
+        description: 'Java toolchain version'
+        required: true
+        default: '25'
+        type: string
+      loom_version:
+        description: 'Fabric Loom version (override only when required)'
+        required: true
+        default: '1.19.3'
+        type: string
+      gradle_version:
+        description: 'Gradle version compatible with the selected Loom version'
+        required: true
+        default: '9.8.0'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Fabric ${{ inputs.minecraft_version }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java ${{ inputs.java_version }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Prepare isolated lean Fabric target
+        env:
+          MINECRAFT_VERSION: ${{ inputs.minecraft_version }}
+          FABRIC_API_VERSION: ${{ inputs.fabric_api_version }}
+          FABRIC_LOADER_VERSION: ${{ inputs.fabric_loader_version }}
+          JAVA_VERSION: ${{ inputs.java_version }}
+          LOOM_VERSION: ${{ inputs.loom_version }}
+          GRADLE_VERSION: ${{ inputs.gradle_version }}
+        run: python3 tools/prepare_lean_fabric.py
+
+      - name: Build only the requested Fabric target
+        env:
+          TARGET_PROJECT: ${{ inputs.minecraft_version }}-fabric
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon ":${TARGET_PROJECT}:build"
+
+      - name: Collect and inspect the mod JAR
+        shell: bash
+        env:
+          TARGET_PROJECT: ${{ inputs.minecraft_version }}-fabric
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          find "versions/${TARGET_PROJECT}/build/libs" -maxdepth 1 -type f -name '*.jar' \
+            ! -name '*-sources.jar' -exec cp -v {} out/ \;
+          test -n "$(find out -maxdepth 1 -type f -name '*.jar' -print -quit)"
+          for jar in out/*.jar; do
+            echo "=== ${jar} ==="
+            unzip -p "${jar}" fabric.mod.json
+          done
+
+      - name: Upload Fabric ${{ inputs.minecraft_version }} JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-message-enhancer-lean-${{ inputs.minecraft_version }}
+          path: out/*.jar
+          if-no-files-found: error
