@@ -1,0 +1,53 @@
+name: Build Screenshot Message Enhancer - lean Fabric 26.3
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/build-lean-26-3.yml"
+      - "tools/port_26_3.py"
+      - "settings.gradle.kts"
+      - "stonecutter.gradle.kts"
+      - "build.gradle.kts"
+      - "versions/26.2-fabric/**"
+      - "src/main/**"
+
+jobs:
+  build-26-3:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Prepare 26.3 target and remove optional config/menu dependencies
+        run: python3 tools/port_26_3.py
+
+      - name: Build only 26.3 Fabric
+        run: chmod +x ./gradlew && ./gradlew --no-daemon :26.3-fabric:build
+
+      - name: Collect and inspect jar
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          find versions/26.3-fabric/build/libs -maxdepth 1 -type f -name '*.jar' \
+            ! -name '*-sources.jar' -exec cp -v {} out/ \;
+          test -n "$(find out -maxdepth 1 -name '*.jar' -print -quit)"
+          for jar in out/*.jar; do
+            echo "=== $jar ==="
+            unzip -p "$jar" fabric.mod.json
+          done
+
+      - name: Upload 26.3 jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-message-enhancer-lean-26.3
+          path: out/*.jar
+          if-no-files-found: error
