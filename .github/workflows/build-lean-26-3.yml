@@ -20,14 +20,42 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Java 25
+      - name: Set up Java 8 and Java 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "25"
+          java-version: |
+            8
+            25
+
+      - name: Register Java 8 for Gradle toolchains
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.gradle"
+          printf '\norg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64\n' >> "$HOME/.gradle/gradle.properties"
 
       - name: Prepare 26.3 target and remove optional config/menu dependencies
         run: python3 tools/port_26_3.py
+
+      - name: Remove unused Kotlin Compose plugin
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          build_file = Path('build.gradle.kts')
+          build_text = build_file.read_text(encoding = 'utf-8')
+          build_text, matches = re.subn(
+              r'(?m)^\s*id\("org\.jetbrains\.kotlin\.plugin\.compose"\)[^\n]*\n?',
+              '',
+              build_text,
+          )
+          if matches == 0 :
+              raise SystemExit('Could not find the Kotlin Compose plugin declaration in build.gradle.kts')
+          build_file.write_text(build_text, encoding = 'utf-8')
+          print('Removed Kotlin Compose plugin declaration.')
+          PY
 
       - name: Build only 26.3 Fabric
         run: chmod +x ./gradlew && ./gradlew --no-daemon :26.3-fabric:build
