@@ -31,32 +31,18 @@ jobs:
       - name: Register Java 8 for Gradle toolchains
         shell: bash
         run: |
+          set -euo pipefail
+          test -d "$JAVA_HOME_8_X64"
           mkdir -p "$HOME/.gradle"
           printf '\norg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64\n' >> "$HOME/.gradle/gradle.properties"
+          echo "Registered Java 8 toolchain at $JAVA_HOME_8_X64"
 
       - name: Prepare 26.3 target and remove optional config/menu dependencies
         run: python3 tools/port_26_3.py
 
-      - name: Remove unused Kotlin Compose plugin
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          build_file = Path('build.gradle.kts')
-          build_text = build_file.read_text(encoding = 'utf-8')
-          build_text, matches = re.subn(
-              r'(?m)^\s*id\("org\.jetbrains\.kotlin\.plugin\.compose"\)[^\n]*\n?',
-              '',
-              build_text,
-          )
-          if matches == 0 :
-              raise SystemExit('Could not find the Kotlin Compose plugin declaration in build.gradle.kts')
-          build_file.write_text(build_text, encoding = 'utf-8')
-          print('Removed Kotlin Compose plugin declaration.')
-          PY
-
+      # Kotlin remains required by the existing Kotlin source files.
+      # The Compose plugin is not declared in build.gradle.kts, so there is
+      # nothing to remove here.
       - name: Build only 26.3 Fabric
         run: chmod +x ./gradlew && ./gradlew --no-daemon :26.3-fabric:build
 
