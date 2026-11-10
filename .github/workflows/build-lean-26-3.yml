@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/build-lean-26-3.yml"
       - "tools/port_26_3.py"
+      - "tools/isolate_26_3_build.py"
       - "settings.gradle.kts"
       - "stonecutter.gradle.kts"
       - "build.gradle.kts"
@@ -20,29 +21,18 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Java 8 and Java 25
+      - name: Set up Java 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: |
-            8
-            25
-
-      - name: Register Java 8 for Gradle toolchains
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -d "$JAVA_HOME_8_X64"
-          mkdir -p "$HOME/.gradle"
-          printf '\norg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64\n' >> "$HOME/.gradle/gradle.properties"
-          echo "Registered Java 8 toolchain at $JAVA_HOME_8_X64"
+          java-version: "25"
 
       - name: Prepare 26.3 target and remove optional config/menu dependencies
         run: python3 tools/port_26_3.py
 
-      # Kotlin remains required by the existing Kotlin source files.
-      # The Compose plugin is not declared in build.gradle.kts, so there is
-      # nothing to remove here.
+      - name: Isolate 26.3 target and use compatible Gradle
+        run: python3 tools/isolate_26_3_build.py
+
       - name: Build only 26.3 Fabric
         run: chmod +x ./gradlew && ./gradlew --no-daemon :26.3-fabric:build
 
